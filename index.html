@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="Helping teachers and students take their sessions online.">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="tactopus_web_app">
+  <meta name="google-signin-client_id" content="956620709783-mltnb0s0hq6qv7g68lle3ucls3b3mmet.apps.googleusercontent.com">
+
+  <script src="https://checkout.razorpay.com/v1/razorpay.js"></script>
+  <meta name="viewport" content="width=device-width">
+
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="shortcut icon" type="image/png" href="favicon.png"/>
+
+  <title>tactopus_web_app</title>
+  <link rel="manifest" href="manifest.json">
+  <script src="myjs.js" defer></script>
+
+  <!-- Start of Async Callbell Code -->
+<script>
+  window.callbellSettings = {
+    token: "dzRWtvz52h8GkD3HB1M3XJJB"
+  };
+</script>
+<script>
+  (function(){var w=window;var ic=w.callbell;if(typeof ic==="function"){ic('reattach_activator');ic('update',callbellSettings);}else{var d=document;var i=function(){i.c(arguments)};i.q=[];i.c=function(args){i.q.push(args)};w.Callbell=i;var l=function(){var s=d.createElement('script');s.type='text/javascript';s.async=true;s.src='https://dash.callbell.eu/include/'+window.callbellSettings.token+'.js';var x=d.getElementsByTagName('script')[0];x.parentNode.insertBefore(s,x);};if(w.attachEvent){w.attachEvent('onload',l);}else{w.addEventListener('load',l,false);}}})()
+</script>
+<!--  End of Async Callbell Code -->
+
+
+
+</head>
+<body>
+  <!-- This script installs service_worker.js to provide PWA functionality to
+       application. For more information, see:
+       https://developers.google.com/web/fundamentals/primers/service-workers -->
+
+<script src="https://www.gstatic.com/firebasejs/7.14.3/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/7.14.3/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/7.14.3/firebase-functions.js"></script>
+<script src="https://www.gstatic.com/firebasejs/7.14.3/firebase-firestore.js"></script>
+<script src="https://www.gstatic.com/firebasejs/7.14.3/firebase-messaging.js"></script>
+<script src="https://www.gstatic.com/firebasejs/7.14.3/firebase-storage.js"></script>
+
+
+
+<script>
+  // Your web app's Firebase configuration
+  var firebaseConfig = {
+    apiKey: "AIzaSyA_qYrnKRfxXYB8-rkqi4jbtcFXkYUrDeA",
+    authDomain: "tactopus-website.firebaseapp.com",
+    databaseURL: "https://tactopus-website.firebaseio.com",
+    projectId: "tactopus-website",
+    storageBucket: "tactopus-website.appspot.com",
+    messagingSenderId: "956620709783",
+    appId: "1:956620709783:web:fc0594c4209da7d606aed2",
+    measurementId: "G-ZJ51KSHGCB"
+  };
+  // Initialize Firebase
+  firebase.initializeApp(firebaseConfig);
+  const messaging = firebase.messaging();
+  var db =firebase.firestore();
+  var storage = firebase.storage();
+  messaging.usePublicVapidKey('BLVSjbQ9QkGYRxvTR7W14VXG1QB7V0NbJD044h9fbtneO6ze-1FP7JAOmKHaucXI1zx4KOhAjF_04QsiRz8om5k');
+    // [END set_public_vapid_key]
+
+  function getFCMToken(userUID){
+  messaging.getToken().then((currentToken) => {
+    console.log('token html - '+currentToken) 
+    sendTokenToServer(currentToken,userUID);
+    return currentToken;
+  }) 
+  }  
+
+    
+// Callback fired if Instance ID token is updated.
+  messaging.onTokenRefresh(() => {
+    messaging.getToken().then((refreshedToken) => {
+    console.log('Token refreshed.');
+    // Indicate that the new Instance ID token has not yet been sent to the
+    // app server.
+    setTokenSentToServer(false);
+    // Send Instance ID token to app server.
+    sendTokenToServer(refreshedToken);
+    // ...
+  })
+  .catch((err) => {
+    console.log('Unable to retrieve refreshed token ', err);
+    showToken('Unable to retrieve refreshed token ', err);
+    });
+  });
+
+  function sendTokenToServer(currentToken, userUID) {
+    console.log('send token to server called');
+    var token ={
+      token:currentToken
+    }
+    // uploads the notifcation token to firestore for push notification
+    // this gets called every time the apps run sometime the token get refreshed
+    // depends on browser
+    db.collection("Tokens").doc(userUID).get().then(function(doc) {
+    if (doc.exists) {
+        console.log("Document data:"+ doc.get('token'));
+        if(currentToken == doc.get('token')){
+          console.log('same token');
+          // if the token is same no need to update
+        }
+        else{
+          console.log('update token');
+          /// if token is refreshed replace old token with new
+          updateOrCreateToken(currentToken,userUID);
+        }
+    } else {
+        // doc.data() will be undefined in this case
+        console.log("create token");
+        updateOrCreateToken(currentToken,userUID);
+    }
+    }).catch(function(error) {
+    console.log("Error getting document:", error);
+    });
+    
+  
+  }
+
+  function updateOrCreateToken(currentToken, userUID) {
+    console.log('updating token');
+    var token ={
+      token:currentToken
+    }
+  
+    db.collection("Tokens").doc(userUID).set(token).then(function() {
+    console.log("Token successfully written!");
+    // this triggers the tokenUploaded() method defined in main.dart file
+    window.tokenUploaded(currentToken);
+    
+    }).catch(function(error) {
+    console.error("Error adding document: ", error);
+    });
+  }
+
+  /// this recieves the notification
+  messaging.onMessage((payload) => {
+    console.log('Message received. ', payload);
+  });
+  
+  firebase.analytics();
+</script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('flutter_service_worker.js');
+      });
+    }
+  </script>
+  <script src="main.dart.js" type="application/javascript"></script>
+  
+
+
+  <!--- this starts the razorpay checkout -->
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <script>
+  // this method gets triggered on click Pay now of payment alert dialog  
+  function startPayment(amount,name, email){
+    console.log('payment method')
+    var options = {
+      "key": "rzp_live_VxzpSNqTOinWHz", // rzp_test_sIHHPBY2aIgRzg  Enter the Key ID generated from the Dashboard
+      "amount": amount, // Amount is in currency subunits. Default currency is INR. Hence, 50000 refers to 50000 paise
+      "currency": "INR",
+      "name": "Tactopus",
+      "description": "Session booking",
+      "image": "https://firebasestorage.googleapis.com/v0/b/tactopus-website.appspot.com/o/Group%20208.png?alt=media&token=105216ab-2df9-43d7-a64a-fcf41cbdf97f",//This is a sample Order ID. Pass the `id` obtained in the response of Step 1
+      "handler": function (response){
+        console.log(response);
+        // after payment is successfull it calls paymentComplete() method define in main.dart file.
+        window.paymentComplete(response.razorpay_payment_id,response.razorpay_order_id,response.razorpay_signature );
+      },
+      "prefill": {
+        "name": name,
+        "email": email,
+    },
+      "notes": {
+          "address": "Razorpay Corporate Office"
+      },
+      "theme": {
+          "color": "#F37254"
+      }
+    };
+  
+    var rzp1 = new Razorpay(options);
+    rzp1.open();
+    console.log('pay open');
+  }
+  </script>
+  <!-- razorpay codes end -->
+
+
+ </body>
+</html>
